@@ -1,0 +1,18 @@
+{
+  "name": "pessenger",
+  "version": "1.0.0",
+  "description": "Pessenger a cheap realtime implementation of Web Sockets using Socket.io Node JS",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.1",
+    "nodemon": "^3.1.7",
+    "socket.io": "^4.8.0"
+  }
+}

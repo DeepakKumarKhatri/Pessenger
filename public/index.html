@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pessenger</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background-color: #181818;
+        color: #fff;
+        font-family: Arial, sans-serif;
+      }
+
+      #chat-container {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      #sidebar {
+        width: 300px;
+        background-color: #333;
+        padding: 1rem;
+      }
+
+      #users {
+        margin-bottom: 1rem;
+        font-size: 1.2rem;
+        list-style: none;
+        padding: 0;
+      }
+
+      #users li {
+        cursor: pointer;
+        padding: 0.5rem;
+        border-bottom: 1px solid #444;
+      }
+
+      #chat-section {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 1rem;
+      }
+
+      #messages {
+        flex-grow: 1;
+        overflow-y: auto;
+        margin-bottom: 1rem;
+      }
+
+      .message {
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        max-width: 60%;
+        word-wrap: break-word;
+      }
+
+      .my-message {
+        background-color: #0d6efd;
+        color: white;
+        align-self: flex-end;
+      }
+
+      .other-message {
+        background-color: #444;
+        align-self: flex-start;
+      }
+
+      .private-message {
+        background-color: #ff7043;
+        align-self: flex-end;
+      }
+
+      .typing-indicator {
+        font-style: italic;
+        color: #ccc;
+      }
+
+      .input-group {
+        margin-top: 1rem;
+      }
+
+      button#sendBtn {
+        background-color: #0d6efd;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="chat-container">
+      <!-- Sidebar -->
+      <div id="sidebar">
+        <h3>Users</h3>
+        <ul id="users"></ul>
+      </div>
+
+      <!-- Chat Section -->
+      <div id="chat-section">
+        <div id="messages"></div>
+        <div id="typing" class="typing-indicator"></div>
+        <div class="input-group mb-3">
+          <input
+            type="text"
+            id="message"
+            class="form-control"
+            placeholder="Enter Message"
+          />
+          <button id="sendBtn" class="btn btn-primary">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      const sendBtn = document.getElementById("sendBtn");
+      const messageInput = document.getElementById("message");
+      const allMessages = document.getElementById("messages");
+      const typingIndicator = document.getElementById("typing");
+      const usersDiv = document.getElementById("users");
+      let typingTimeout;
+      let recipientId = null; // For private messaging
+
+      // Prompt the user for a username
+      const username = prompt("Enter your username:");
+      socket.emit("join", username);
+
+      // Receive public messages
+      socket.on("message", (data) => {
+        displayMessage(data, false);
+      });
+
+      // Receive private messages
+      socket.on("private-message", (data) => {
+        displayMessage(data, true);
+      });
+
+      // Send message on button click
+      sendBtn.addEventListener("click", (e) => {
+        const message = messageInput.value;
+        if (message) {
+          if (recipientId) {
+            // Send a private message
+            socket.emit("private-message", { recipientId, message });
+          } else {
+            // Send a public message
+            socket.emit("user-message", { message });
+          }
+          messageInput.value = "";
+        }
+      });
+
+      messageInput.addEventListener("input", () => {
+        socket.emit("typing", true);
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+          socket.emit("typing", false);
+        }, 1000);
+      });
+
+      // Show typing indicator
+      socket.on("typing", (data) => {
+        typingIndicator.textContent = data.isTyping
+          ? `${data.user} is typing...`
+          : "";
+      });
+
+      // Populate user list
+      socket.on("user-list", (users) => {
+        usersDiv.innerHTML = "";
+        users.forEach((user, index) => {
+          const li = document.createElement("li");
+          li.innerText = user;
+          li.addEventListener("click", () => {
+            recipientId = index; // Set recipient for private message
+            alert(`You are now chatting with ${user}`);
+          });
+          usersDiv.appendChild(li);
+        });
+      });
+
+      // Display messages
+      function displayMessage(data, isPrivate) {
+        const { text, user, timestamp } = data;
+        const p = document.createElement("p");
+        p.innerHTML = `<strong>${user}:</strong> ${text} <small>${timestamp}</small>`;
+        p.classList.add(
+          "message",
+          user === username ? "my-message" : isPrivate ? "private-message" : "other-message"
+        );
+        allMessages.appendChild(p);
+        allMessages.scrollTop = allMessages.scrollHeight;
+      }
+
+      // Request notification permission
+      if (Notification.permission !== "granted") {
+        Notification.requestPermission();
+      }
+
+      // Browser notifications
+      socket.on("message", (data) => {
+        if (document.hidden) {
+          new Notification("New message", { body: `${data.user}: ${data.text}` });
+        }
+      });
+    </script>
+  </body>
+</html>
